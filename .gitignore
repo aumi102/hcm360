@@ -30,8 +30,16 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files — every real one stays out of the repository.
 .env*
+# ...except the template, which contains names only and no values.
+!.env.example
+
+# credentials of any kind
+*.key
+*.p12
+service-account*.json
+secrets/
 
 # vercel
 .vercel
