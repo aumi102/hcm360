@@ -1,6 +1,6 @@
 import { setHostSession } from '@/lib/auth/session';
 import { verifyAdminSecret } from '@/lib/auth/tokens';
-import { assertProductionSecrets, serverEnv } from '@/lib/env';
+import { productionConfigError, serverEnv } from '@/lib/env';
 import { serverNow } from '@/lib/game/runtime';
 import { hostLoginSchema, parseJsonBody } from '@/lib/game/validation';
 import { badRequest, jsonError, jsonOk, unauthorized, withErrorHandling } from '@/lib/http';
@@ -31,13 +31,15 @@ export async function POST(request: Request): Promise<Response> {
 
     const env = serverEnv();
 
-    const misconfigured = assertProductionSecrets(env);
+    const misconfigured = productionConfigError(env);
     if (misconfigured) {
-      console.error('[hcm360] refusing host login:', misconfigured);
+      // Logged with the specific problem for the operator; the response stays generic so
+      // it does not tell an anonymous caller which variable is missing.
+      console.error('[hcm360] refusing host login:', misconfigured.problem, misconfigured.message);
       return jsonError(
         {
           code: 'STORAGE_ERROR',
-          message: 'Máy chủ chưa được cấu hình bảo mật đầy đủ. Liên hệ người quản trị.',
+          message: 'Máy chủ chưa được cấu hình đầy đủ cho production. Liên hệ người quản trị.',
         },
         { status: 500 },
       );

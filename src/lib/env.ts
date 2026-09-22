@@ -56,27 +56,75 @@ export function serverEnv(): ServerEnv {
 }
 
 /**
- * Refuse to serve a production request with development credentials.
+ * Every way a production deployment can be misconfigured, as a machine-readable code.
  *
- * Called from the host-login handler rather than at module load: a misconfigured
- * deployment should fail loudly at the moment someone tries to take control of a
- * game, not crash the whole site including the student-facing pages.
+ * Exported so tests can assert each case individually rather than string-matching a
+ * Vietnamese sentence.
  */
-export function assertProductionSecrets(env: ServerEnv): string | null {
+export type ProductionConfigProblem =
+  | 'ADMIN_SECRET_IS_DEV_DEFAULT'
+  | 'SESSION_SECRET_IS_DEV_DEFAULT'
+  | 'ADMIN_SECRET_TOO_SHORT'
+  | 'SESSION_SECRET_TOO_SHORT'
+  | 'SUPABASE_NOT_CONFIGURED';
+
+export interface ProductionConfigError {
+  problem: ProductionConfigProblem;
+  /** Operator-facing message; safe to log, safe to show to the host. */
+  message: string;
+}
+
+/**
+ * Refuse to run a game on a misconfigured production deployment.
+ *
+ * Two classes of failure are treated identically, because both are silent and both are
+ * discovered in front of a class:
+ *
+ *  - development credentials still in place, which would leave the host controls open
+ *    to anyone who read the repository;
+ *  - Supabase absent, which would quietly select the in-memory adapter. That adapter is
+ *    correct for exactly one process, and a serverless deployment runs several — so a
+ *    class would be split across instances into several disconnected games, each seeing
+ *    a different subset of players. Failing loudly here is much kinder than that.
+ *
+ * Checked at the moment someone tries to take control of a game rather than at module
+ * load, so a misconfiguration does not also take down the student-facing pages.
+ */
+export function productionConfigError(env: ServerEnv): ProductionConfigError | null {
   if (!env.isProduction) return null;
 
   if (env.adminSecret === DEV_ADMIN_SECRET) {
-    return 'ADMIN_SECRET chưa được cấu hình cho môi trường production.';
+    return {
+      problem: 'ADMIN_SECRET_IS_DEV_DEFAULT',
+      message: 'ADMIN_SECRET chưa được cấu hình cho môi trường production.',
+    };
   }
   if (env.sessionSecret === DEV_SESSION_SECRET) {
-    return 'SESSION_SECRET chưa được cấu hình cho môi trường production.';
+    return {
+      problem: 'SESSION_SECRET_IS_DEV_DEFAULT',
+      message: 'SESSION_SECRET chưa được cấu hình cho môi trường production.',
+    };
   }
   if (env.adminSecret.length < 8) {
-    return 'ADMIN_SECRET quá ngắn (tối thiểu 8 ký tự).';
+    return {
+      problem: 'ADMIN_SECRET_TOO_SHORT',
+      message: 'ADMIN_SECRET quá ngắn (tối thiểu 8 ký tự).',
+    };
   }
   if (env.sessionSecret.length < 32) {
-    return 'SESSION_SECRET quá ngắn (tối thiểu 32 ký tự).';
+    return {
+      problem: 'SESSION_SECRET_TOO_SHORT',
+      message: 'SESSION_SECRET quá ngắn (tối thiểu 32 ký tự).',
+    };
   }
+  if (!env.supabaseConfigured) {
+    return {
+      problem: 'SUPABASE_NOT_CONFIGURED',
+      message:
+        'Thiếu SUPABASE_URL hoặc SUPABASE_SERVICE_ROLE_KEY. Production không được chạy ở chế độ bộ nhớ tạm.',
+    };
+  }
+
   return null;
 }
 
@@ -85,5 +133,13 @@ function nonEmpty(value: string | undefined): string | null {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+/**
+ * Test seam: `serverEnv()` memoises, which is right for a server process and wrong for
+ * a test that needs to try several environments in one run.
+ */
+export function __resetEnvCacheForTests(): void {
+  cached = null;
 }
 

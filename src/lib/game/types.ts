@@ -78,11 +78,22 @@ export interface PublicQuestion {
   total: number;
 }
 
-/** The additional fields that become public once the question is revealed. */
+/**
+ * What a player's phone and the projector receive once a question is revealed.
+ *
+ * Deliberately omits `provenance`: it names internal extraction files and line numbers,
+ * which would be meaningless on a projector and odd on a student's phone. It is also
+ * withheld from the wire entirely rather than merely not rendered, so it cannot be read
+ * out of the network response.
+ */
 export interface RevealedQuestion extends PublicQuestion {
   correctIndex: number;
   explanation: string;
   conceptId: string;
+}
+
+/** The host's own screen additionally gets the source citation, to narrate the reveal. */
+export interface HostRevealedQuestion extends RevealedQuestion {
   provenance: string;
 }
 

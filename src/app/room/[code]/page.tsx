@@ -5,23 +5,29 @@ import { ProjectorScreen } from '@/components/projector/projector-screen';
 import { QrCode } from '@/components/qr-code';
 import { serverEnv } from '@/lib/env';
 import { isValidRoomCodeShape, normaliseRoomCode } from '@/lib/game/codes';
+import { buildJoinUrl } from '@/lib/origin';
 
 /**
  * Build the absolute URL students will scan.
  *
- * Prefers the configured origin, then the request's forwarded host. The request host is
- * what makes the QR work when the dev server is reached from a phone on the same
- * Wi-Fi — `localhost` in the QR would be unscannable from any device but this one.
+ * Derived from the request by default, so no environment variable is needed on Vercel:
+ * the platform sets `x-forwarded-host` and `x-forwarded-proto`, and those are trusted
+ * ahead of anything else. The resolution rules live in `@/lib/origin` so they can be
+ * unit tested — a QR with the wrong scheme is invisible until a room of phones fails
+ * to open it.
  */
 async function joinUrl(code: string): Promise<string> {
-  const configured = serverEnv().publicOrigin;
-  if (configured) return `${configured.replace(/\/$/, '')}/join/${code}`;
-
   const headerList = await headers();
-  const host = headerList.get('x-forwarded-host') ?? headerList.get('host') ?? 'localhost:3000';
-  const protocol = headerList.get('x-forwarded-proto') ?? (host.startsWith('localhost') ? 'http' : 'https');
 
-  return `${protocol}://${host}/join/${code}`;
+  return buildJoinUrl(
+    {
+      configuredOrigin: serverEnv().publicOrigin,
+      forwardedHost: headerList.get('x-forwarded-host'),
+      forwardedProto: headerList.get('x-forwarded-proto'),
+      host: headerList.get('host'),
+    },
+    code,
+  );
 }
 
 export default async function ProjectorPage({ params }: PageProps<'/room/[code]'>) {

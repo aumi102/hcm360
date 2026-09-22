@@ -10,7 +10,10 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "verify": "npm run lint && npm run typecheck && npm test && npm run build"
+    "smoke": "node scripts/smoke.mjs",
+    "verify": "npm run lint && npm run typecheck && npm test",
+    "predeploy": "npm run lint && npm run typecheck && npm test && npm run build && npm run check:bundle && npm run smoke",
+    "check:bundle": "node scripts/check-bundle.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",
@@ -34,6 +37,6 @@
     "vitest": "^5.0.1"
   },
   "engines": {
-    "node": ">=20.9.0"
+    "node": "22.x"
   }
 }

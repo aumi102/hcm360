@@ -1,5 +1,5 @@
 import { isHost } from '@/lib/auth/session';
-import { serverEnv } from '@/lib/env';
+import { productionConfigError, serverEnv } from '@/lib/env';
 import { getEngine, serverNow } from '@/lib/game/runtime';
 import { jsonError, jsonOk, unauthorized, withErrorHandling } from '@/lib/http';
 import { clientKey, rateLimit } from '@/lib/rate-limit';
@@ -10,6 +10,21 @@ export async function POST(request: Request): Promise<Response> {
     const now = serverNow();
 
     if (!(await isHost(now))) return unauthorized();
+
+    // Checked again here, not only at login: a host cookie minted before the deployment
+    // lost its database would otherwise still be able to start a game that silently
+    // ran on the single-process in-memory adapter.
+    const misconfigured = productionConfigError(serverEnv());
+    if (misconfigured) {
+      console.error('[hcm360] refusing room creation:', misconfigured.problem, misconfigured.message);
+      return jsonError(
+        {
+          code: 'STORAGE_ERROR',
+          message: 'Máy chủ chưa được cấu hình đầy đủ cho production. Liên hệ người quản trị.',
+        },
+        { status: 500 },
+      );
+    }
 
     if (!rateLimit(`create-room:${clientKey(request)}`, now, { capacity: 20, refillPerSecond: 0.2 })) {
       return jsonError(

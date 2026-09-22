@@ -200,7 +200,9 @@ có đúng một nguồn duy nhất, đi kèm lịch sử Git.
 | Sinh viên trả lời sau giờ | Máy chủ so `now` với `answers_close_at` đã lưu, bên trong giao dịch có khoá dòng |
 | Sinh viên đọc trộm đáp án | Khung nhìn khi câu đang mở **không chứa** `correctIndex`, `explanation` hay `distractorRationale`. Đã kiểm chứng trên phản hồi thật |
 | Sinh viên đọc thẳng CSDL | RLS bật, **không policy nào**. Vai trò `anon` không đọc được gì |
-| Lộ service-role key | Chỉ dùng phía máy chủ. `src/lib/env.ts` khai báo `server-only`, nên nhập nó từ Client Component là lỗi biên dịch |
+| Lộ service-role key | Chỉ dùng phía máy chủ. `src/lib/env.ts` khai báo `server-only`, nên nhập nó từ Client Component là lỗi biên dịch. Không đọc từ bất kỳ tên `NEXT_PUBLIC_` nào |
+| Production âm thầm chạy bằng bộ nhớ tạm | `productionConfigError()` từ chối đăng nhập điều khiển **và** tạo phòng khi thiếu Supabase ở production. Kiểm tra ở cả hai điểm, vì cookie cấp trước đó vẫn còn hiệu lực |
+| Lộ tên tệp/số dòng nội bộ | `provenance` bị loại khỏi payload gửi cho người chơi và màn chiếu (`RevealedQuestion` so với `HostRevealedQuestion`), không chỉ là không hiển thị |
 | Đoán mã quản trị | So sánh theo thời gian hằng định; giới hạn tần suất 10 lần rồi hồi 1 lần/10 giây; production từ chối chạy nếu còn dùng mã mặc định của môi trường dev |
 | Đánh cắp phiên | Cookie `httpOnly` + `sameSite=lax` + `secure` ở production; token ký HMAC-SHA256; token người chơi gắn chặt với mã phòng nên không dùng lại được sang phòng khác |
 | Giả mạo tên | Ký tự vô hình và ký tự đảo chiều bị loại khỏi tên hiển thị |
@@ -236,8 +238,30 @@ poll 204, reset, kết nối lại. Kết quả ghi trong báo cáo cuối.
 
 Vercel + Supabase. Các bước chính xác nằm trong [`../README.md`](../README.md).
 
-Nguyên tắc: **production bắt buộc phải có Supabase**. Adapter bộ nhớ chỉ đúng cho một tiến
-trình; một deployment serverless chạy nhiều instance, mỗi instance sẽ giữ một bản sao phòng
-riêng và lớp sẽ bị tách thành nhiều ván rời rạc. Bảng điều khiển hiển thị rõ nhãn "chế độ
-bộ nhớ tạm" bất cứ khi nào Supabase chưa được cấu hình, để tình trạng này không thể lọt
-vào một buổi dạy thật mà không ai nhận ra.
+Nguyên tắc: **production bắt buộc phải có Supabase, và ứng dụng tự chặn nếu thiếu.**
+Adapter bộ nhớ chỉ đúng cho một tiến trình; một deployment serverless chạy nhiều instance,
+mỗi instance sẽ giữ một bản sao phòng riêng và lớp sẽ bị tách thành nhiều ván rời rạc.
+
+Vì vậy hành vi ở production là **fail closed**, không phải suy giảm âm thầm:
+
+| Tình huống | Hành vi |
+|---|---|
+| Thiếu `SUPABASE_URL` hoặc `SUPABASE_SERVICE_ROLE_KEY` | Đăng nhập điều khiển và tạo phòng bị từ chối (`SUPABASE_NOT_CONFIGURED`) |
+| Còn dùng `ADMIN_SECRET` / `SESSION_SECRET` mặc định của dev | Từ chối, ghi log mã lỗi cụ thể |
+| `SESSION_SECRET` ngắn hơn 32 ký tự | Từ chối |
+
+Kiểm tra ở **cả** `/api/host/login` **và** `/api/host/rooms`: một cookie điều khiển cấp
+trước khi deployment mất cơ sở dữ liệu vẫn còn hiệu lực, nên chỉ chặn ở bước đăng nhập là
+chưa đủ. Phản hồi trả về thông báo chung; mã lỗi cụ thể chỉ vào log máy chủ. Toàn bộ các
+trường hợp này có kiểm thử trong `tests/env.test.ts`.
+
+### Địa chỉ công khai và mã QR
+
+Suy ra từ chính yêu cầu, không cần biến môi trường trên Vercel: nền tảng luôn đặt
+`x-forwarded-host` và `x-forwarded-proto`. Quy tắc nằm ở `src/lib/origin.ts` và được kiểm
+thử riêng, vì một mã QR sai giao thức chỉ lộ ra đúng lúc cả lớp đang giơ điện thoại lên.
+
+Thứ tự ưu tiên: `NEXT_PUBLIC_APP_ORIGIN` (nếu được đặt) → header của proxy → host trực
+tiếp, với giao thức suy ra theo địa chỉ (`http` cho loopback và dải LAN riêng, `https` cho
+địa chỉ công khai). Nhánh cuối chính là thứ làm cho mã QR quét được khi chạy `next dev`
+trên địa chỉ LAN của máy tính xách tay.

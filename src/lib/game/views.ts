@@ -1,6 +1,7 @@
 import type {
   AnswerDistribution,
   GameStats,
+  HostRevealedQuestion,
   LeaderboardEntry,
   PlayerAnswerView,
   PublicQuestion,
@@ -50,7 +51,8 @@ export interface ProjectorRoomView extends BaseRoomView {
 export interface HostRoomView extends BaseRoomView {
   role: 'host';
   question: PublicQuestion | null;
-  reveal: RevealedQuestion | null;
+  /** Carries `provenance`; this view is the teacher's own device and is never projected. */
+  reveal: HostRevealedQuestion | null;
   distribution: AnswerDistribution | null;
   leaderboard: LeaderboardEntry[] | null;
   players: { id: string; displayName: string; score: number; joinedAt: number }[];

@@ -32,8 +32,9 @@ yarn-error.log*
 
 # env files — every real one stays out of the repository.
 .env*
-# ...except the template, which contains names only and no values.
+# ...except the templates, which contain names and placeholders only, no values.
 !.env.example
+!.env.production.example
 
 # credentials of any kind
 *.key

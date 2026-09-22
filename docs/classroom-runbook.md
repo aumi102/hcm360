@@ -7,13 +7,21 @@ mang theo trang này khi lên lớp.
 
 ## A. Trước buổi học (làm ở nhà, 10 phút)
 
-1. Mở link production trên máy sẽ dùng, đăng nhập `/host` **một lần** để chắc chắn mã
-   quản trị còn đúng. Đăng nhập xong thì cứ để nguyên, cookie sống 12 giờ.
-2. Chạy thử trọn một ván với hai tab (một tab làm người chơi) để kiểm tra đường truyền.
-3. Đọc lướt [`question-set.md`](./question-set.md) — mỗi câu có sẵn một câu bình luận
-   gợi ý. Chọn trước **một hoặc hai câu** bạn sẽ dừng lại phân tích; những câu còn lại
-   thì lướt nhanh. Đây là biến số quyết định trò chơi gọn trong 5 phút hay kéo thành 12.
-4. Chuẩn bị phương án dự phòng ở mục F.
+1. **Xác nhận địa chỉ production** đang chạy: mở trang chủ, phải là `https://`, đúng tên
+   miền của bản triển khai — không phải địa chỉ preview.
+2. Đăng nhập `/host` **một lần** trên đúng chiếc máy sẽ mang lên lớp. Cookie sống 12 giờ.
+3. **Kiểm tra không có nhãn "chế độ bộ nhớ tạm"** ở bảng điều khiển. Nếu có, bản triển
+   khai chưa nối Supabase — xem [`DEPLOYMENT.md`](./DEPLOYMENT.md) mục C, không sửa kịp
+   tại lớp.
+4. **Tạo một phòng thử**, chạy trọn một ván: mở màn chiếu, quét QR bằng **điện thoại dùng
+   mạng di động** (không dùng Wi-Fi lớp — đây là cách duy nhất kiểm tra được rằng mã QR
+   trỏ ra địa chỉ công khai thật chứ không phải địa chỉ nội bộ).
+5. **Đóng phòng thử**: bấm **Kết thúc sớm** rồi **Tạo phòng mới**, để hôm sau không lẫn
+   với phòng cũ.
+6. Đọc lướt [`question-set.md`](./question-set.md). Chọn trước **một hoặc hai câu** sẽ
+   dừng lại phân tích; những câu còn lại thì lướt nhanh. Đây là biến số quyết định trò
+   chơi gọn trong 5 phút hay kéo thành 12.
+7. **In sẵn** [`question-set.md`](./question-set.md) — phương án dự phòng ở mục G.
 
 ## B. Ngay trước khi chơi (2 phút, trong lúc còn đang nói)
 

@@ -21,6 +21,7 @@ import {
   type Player,
   type PublicQuestion,
   type Question,
+  type HostRevealedQuestion,
   type RevealedQuestion,
   type Room,
 } from './types';
@@ -309,7 +310,7 @@ export class GameEngine {
       question: this.publicQuestion(room),
       // The host screen is the teacher's own device and needs the answer in order to
       // narrate the reveal, so it is sent as soon as a question is open.
-      reveal: room.currentQuestionIndex >= 0 ? this.revealedQuestion(room) : null,
+      reveal: room.currentQuestionIndex >= 0 ? this.hostRevealedQuestion(room) : null,
       distribution:
         room.currentQuestionIndex >= 0
           ? buildDistribution(answers, room.currentQuestionIndex, players.length)
@@ -386,6 +387,13 @@ export class GameEngine {
     };
   }
 
+  /**
+   * The reveal as sent to a student's phone and to the projector.
+   *
+   * `provenance` is deliberately absent. It names internal extraction files and line
+   * numbers, and leaving it out of the payload — rather than merely not rendering it —
+   * means it cannot be read out of the network response either.
+   */
   private revealedQuestion(room: Room): RevealedQuestion | null {
     const base = this.questions[room.currentQuestionIndex];
     if (!base) return null;
@@ -404,7 +412,15 @@ export class GameEngine {
       correctIndex: base.correctIndex,
       explanation: base.explanation,
       conceptId: base.conceptId,
-      provenance: base.provenance,
     };
+  }
+
+  /** The reveal plus the source citation, for the host's own screen only. */
+  private hostRevealedQuestion(room: Room): HostRevealedQuestion | null {
+    const base = this.questions[room.currentQuestionIndex];
+    const revealed = this.revealedQuestion(room);
+    if (!base || !revealed) return null;
+
+    return { ...revealed, provenance: base.provenance };
   }
 }

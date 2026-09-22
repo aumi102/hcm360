@@ -67,7 +67,8 @@ Chép [`.env.example`](.env.example) thành `.env.local` rồi điền. `.env.lo
 | `SESSION_SECRET` | production | Khoá ký cookie phiên (HMAC-SHA256), tối thiểu 32 ký tự |
 | `SUPABASE_URL` | production | URL dự án Supabase |
 | `SUPABASE_SERVICE_ROLE_KEY` | production | Khoá service-role. **Chỉ phía máy chủ** |
-| `NEXT_PUBLIC_APP_ORIGIN` | không | Ép địa chỉ tuyệt đối dùng cho mã QR |
+| `NEXT_PUBLIC_APP_ORIGIN` | không | Ép địa chỉ tuyệt đối dùng cho mã QR. **Không cần trên Vercel** — ứng dụng tự suy ra từ `x-forwarded-host` / `x-forwarded-proto` |
+| `DEV_ALLOWED_ORIGINS` | không | Chỉ dành cho `next dev`: các địa chỉ LAN được phép, phân tách bằng dấu phẩy. Không ảnh hưởng bản production |
 
 Sinh khoá:
 
@@ -92,10 +93,12 @@ trình máy chủ và mất khi khởi động lại.
 Đúng cho: phát triển, chạy thử, trình diễn trên một máy, và phương án dự phòng khi lớp mất
 Internet.
 
-**Sai cho production.** Một deployment serverless chạy nhiều instance, mỗi instance sẽ giữ
-một bản sao phòng riêng và lớp bị tách thành nhiều ván rời rạc. Bảng điều khiển luôn hiển
-thị nhãn **"chế độ bộ nhớ tạm"** khi Supabase chưa được cấu hình, để tình trạng này không
-lọt vào buổi dạy thật mà không ai nhận ra.
+**Không thể dùng cho production — và ứng dụng tự chặn.** Một deployment serverless chạy
+nhiều instance; mỗi instance sẽ giữ một bản sao phòng riêng và lớp bị tách thành nhiều ván
+rời rạc. Vì vậy khi `NODE_ENV=production` mà thiếu Supabase (hoặc còn dùng mã bí mật mặc
+định của môi trường dev), thao tác **đăng nhập điều khiển và tạo phòng bị từ chối** kèm
+thông báo rõ ràng, thay vì âm thầm chạy bằng bộ nhớ tạm. Xem `productionConfigError()`
+trong `src/lib/env.ts` và bộ kiểm thử `tests/env.test.ts`.
 
 ## Cài đặt Supabase
 
@@ -137,7 +140,9 @@ select public.prune_old_rooms(interval '12 hours');
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm test` | Chạy toàn bộ kiểm thử một lượt |
 | `npm run test:watch` | Kiểm thử ở chế độ theo dõi |
-| `npm run verify` | lint + typecheck + test + build — chạy trước khi triển khai |
+| `npm run smoke` | Chạy thử trọn một ván qua HTTP trên máy chủ dev thật |
+| `npm run verify` | lint + typecheck + test |
+| `npm run predeploy` | **Cổng phát hành**: lint + typecheck + test + build + smoke. Thoát khác 0 nếu có lỗi |
 
 ## Kiểm thử
 
@@ -152,27 +157,18 @@ một ván chạy qua `GameEngine`.
 
 ## Triển khai lên Vercel
 
-1. Đẩy repo lên GitHub.
-2. Ở [vercel.com](https://vercel.com) → **Add New → Project** → chọn repo này. Vercel tự
-   nhận diện Next.js; giữ nguyên mọi thiết lập mặc định.
-3. **Trước khi bấm Deploy**, mở **Environment Variables** và thêm cho cả ba môi trường
-   (Production, Preview, Development):
+Các bước chính xác, kèm bảng biến môi trường và danh sách kiểm tra sau khi lên production,
+nằm ở [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md). Tóm tắt:
 
-   | Tên | Giá trị |
-   |---|---|
-   | `ADMIN_SECRET` | chuỗi ngẫu nhiên dài |
-   | `SESSION_SECRET` | chuỗi ngẫu nhiên ≥ 32 ký tự |
-   | `SUPABASE_URL` | URL dự án Supabase |
-   | `SUPABASE_SERVICE_ROLE_KEY` | khoá service-role |
-
+1. Tạo dự án Supabase, chạy `supabase/migrations/0001_init.sql`.
+2. Import repo vào Vercel (tự nhận diện Next.js, giữ nguyên mặc định).
+3. Thêm bốn biến môi trường: `ADMIN_SECRET`, `SESSION_SECRET`, `SUPABASE_URL`,
+   `SUPABASE_SERVICE_ROLE_KEY`.
 4. Bấm **Deploy**.
-5. Sau khi có địa chỉ, thêm `NEXT_PUBLIC_APP_ORIGIN` = `https://<tên-dự-án>.vercel.app`
-   rồi **deploy lại**. Không bắt buộc, nhưng giúp mã QR luôn trỏ đúng địa chỉ chính thức
-   thay vì địa chỉ preview.
-6. Kiểm tra sau khi triển khai:
-   - mở `/host`, đăng nhập được bằng `ADMIN_SECRET`
-   - bảng điều khiển **không** hiện nhãn "chế độ bộ nhớ tạm"
-   - tạo một phòng, mở màn chiếu, quét QR bằng điện thoại, chơi thử trọn một ván
+5. Chạy danh sách kiểm tra production ở [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) mục C.
+
+`NEXT_PUBLIC_APP_ORIGIN` **không cần** trên Vercel: mã QR được dựng từ `x-forwarded-host`
+và `x-forwarded-proto` mà nền tảng luôn đặt sẵn.
 
 > Không cần thêm cấu hình build, không cần `vercel.json`, không cần vùng chạy đặc biệt.
 
@@ -186,9 +182,12 @@ xử lý sự cố, và ba phương án dự phòng khi mất mạng. In sẵn t
 | Tệp | Nội dung |
 |---|---|
 | [`docs/content-source.md`](docs/content-source.md) | Bản đồ nội dung Chủ đề 8, xuất xứ từng khái niệm, sổ ghi những chỗ tài liệu gốc không thống nhất |
-| [`docs/question-set.md`](docs/question-set.md) | 7 câu hỏi, lý do thiết kế, vì sao từng phương án sai là sai |
+| [`docs/final-content-audit.md`](docs/final-content-audit.md) | Kiểm duyệt phạm vi học thuật trước phát hành: phân loại A/B/C/D từng phần tử của từng câu |
+| [`docs/question-set.md`](docs/question-set.md) | 7 câu hỏi, lý do thiết kế, vì sao từng phương án sai là sai. **In trang này mang lên lớp** |
 | [`docs/implementation-plan.md`](docs/implementation-plan.md) | Kiến trúc, mô hình realtime, lược đồ dữ liệu, mô hình bảo mật, chiến lược kiểm thử |
-| [`docs/classroom-runbook.md`](docs/classroom-runbook.md) | Quy trình chạy thực tế trên lớp |
+| [`docs/classroom-runbook.md`](docs/classroom-runbook.md) | Quy trình chạy thực tế trên lớp và ba phương án dự phòng |
+| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | Supabase + Vercel từng bước, bảng biến môi trường, kiểm tra sau triển khai |
+| [`docs/RELEASE-CANDIDATE.md`](docs/RELEASE-CANDIDATE.md) | Trạng thái bản phát hành ứng viên |
 
 ## Công nghệ
 
